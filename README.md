@@ -1,3 +1,3 @@
-# PeachCompiler
+# CCompiler
 
 C Compiler from scratch
