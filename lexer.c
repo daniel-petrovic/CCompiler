@@ -3,6 +3,7 @@
 #include "helpers/buffer.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <string.h>
 
 #define LEX_GETC_IF(buffer, c, exp)     \
@@ -186,17 +187,17 @@ bool op_valid(const char *op)
            S_EQ(op, "~") ||
            S_EQ(op, "?") ||
            S_EQ(op, "%") ||
-           S_EQ(op, "%=")
-        ;
+           S_EQ(op, "%=");
 }
 
-void read_op_flush_back_but_keep_first(struct buffer* buffer)
+void read_op_flush_back_but_keep_first(struct buffer *buffer)
 {
-    const char* data = buffer_ptr(buffer);
+    const char *data = buffer_ptr(buffer);
     int len = buffer->len;
-    for (int i = len-1; i >= 1; --i)
+    for (int i = len - 1; i >= 1; --i)
     {
-        if (data[i] == 0x00) {
+        if (data[i] == 0x00)
+        {
             continue;
         }
         pushc(data[i]);
@@ -231,15 +232,26 @@ const char *read_op()
             ptr[1] = 0x00;
         }
     }
-    else if (!op_valid(ptr)) {
+    else if (!op_valid(ptr))
+    {
         compiler_error(lex_process->compiler, "The operator %s is not valid\n", ptr);
+    }
+}
+
+static void lex_finish_expression()
+{
+    lex_process->current_expression_count--;
+    if (lex_process->current_expression_count < 0)
+    {
+        compiler_error(lex_process->compiler, "You closed an expression that you never opened\n");
     }
 }
 
 static void lex_new_expression()
 {
     lex_process->current_expression_count++;
-    if (lex_process->current_expression_count == 1) {
+    if (lex_process->current_expression_count == 1)
+    {
         lex_process->parentheses_buffer = buffer_create();
     }
 }
@@ -254,18 +266,55 @@ static struct token *token_make_operator_or_string()
     char op = peekc();
     if (op == '<')
     {
-        struct token* last_token = lexer_last_token();
-        if (token_is_keyword(last_token, "include")) {
+        struct token *last_token = lexer_last_token();
+        if (token_is_keyword(last_token, "include"))
+        {
             return token_make_string('<', '>');
         }
     }
 
-    struct token* token = token_create(&(struct token){.type=TOKEN_TYPE_OPERATOR, .sval=read_op()});
-    if (op == '(') {
+    struct token *token = token_create(&(struct token){.type = TOKEN_TYPE_OPERATOR, .sval = read_op()});
+    if (op == '(')
+    {
         // deal with expression
         lex_new_expression();
     }
     return token;
+}
+
+static struct token *token_make_symbol()
+{
+    char c = nextc();
+    if (c == ')')
+    {
+        lex_finish_expression();
+    }
+
+    struct token *token = token_create(&(struct token){.type = TOKEN_TYPE_SYMBOL, .cval = c});
+}
+
+static struct token *token_make_identifier_or_keyword()
+{
+    struct buffer *buffer = buffer_create();
+    char c = 0;
+    LEX_GETC_IF(buffer, c, (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_');
+
+    // null terminator
+    buffer_write(buffer, 0x00);
+
+    // check if this is a keyword
+
+    return token_create(&(struct token){.type = TOKEN_TYPE_IDENTIFIER, .sval = buffer_ptr(buffer)});
+}
+
+struct token *read_special_token()
+{
+    char c = peekc();
+    if (isalpha(c) || c == '_')
+    {
+        return token_make_identifier_or_keyword();
+    }
+    return NULL;
 }
 
 struct token *read_next_token()
@@ -282,6 +331,10 @@ struct token *read_next_token()
         token = token_make_operator_or_string();
         break;
 
+    SYMBOL_CASE:
+        token = token_make_symbol();
+        break;
+
     case '"':
         token = token_make_string('"', '"');
         break;
@@ -295,7 +348,11 @@ struct token *read_next_token()
         break;
 
     default:
-        compiler_error(lex_process->compiler, "Unexpected token");
+        token = read_special_token();
+        if (!token)
+        {
+            compiler_error(lex_process->compiler, "Unexpected token");
+        }
     }
 
     return token;

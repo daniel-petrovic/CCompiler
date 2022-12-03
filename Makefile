@@ -1,8 +1,12 @@
 OBJECTS= ./build/compiler.o ./build/lex_process.o ./build/lexer.o ./build/token.o ./build/cprocess.o ./build/helpers/buffer.o ./build/helpers/vector.o
 INCLUDES= -I./
 
-all: ${OBJECTS}
+all: make_dirs ${OBJECTS}
 	gcc -g ${INCLUDES} main.c ${OBJECTS} -o ./main
+
+.PHONY: make_dirs
+make_dirs:
+	mkdir -vp ./build/helpers
 
 ./build/compiler.o: compiler.c
 	gcc -g ${INCLUDES} compiler.c -o ./build/compiler.o -c
