@@ -2,3 +2,10 @@
 
 
 int double
+
+
+// comment
+
+/* 
+* another comment
+*/
