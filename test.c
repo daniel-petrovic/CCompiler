@@ -9,3 +9,5 @@ int double
 /* 
 * another comment
 */
+
+'A' 'b' '\n' '\t' 
