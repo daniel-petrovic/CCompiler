@@ -40,6 +40,7 @@ static struct token *token_make_string(char start_delim, char end_delim)
 }
 
 struct token *read_next_token();
+bool lex_is_in_expression();
 
 static struct lex_process *lex_process;
 static struct token tmp_token;
@@ -49,9 +50,15 @@ static char peekc()
     return lex_process->function->peek_char(lex_process);
 }
 
+
 static char nextc()
 {
     char c = lex_process->function->next_char(lex_process);
+
+    if (lex_is_in_expression()) {
+        buffer_write(lex_process->parentheses_buffer, c);
+    }
+
     lex_process->pos.col += 1;
     if (c == '\n')
     {
@@ -82,6 +89,11 @@ struct token *token_create(struct token *token)
 {
     memcpy(&tmp_token, token, sizeof(struct token));
     tmp_token.pos = lex_file_position();
+
+    if (lex_is_in_expression()) {
+        tmp_token.between_brackets = buffer_ptr(lex_process->parentheses_buffer);
+    }
+
     return &tmp_token;
 }
 
@@ -243,15 +255,8 @@ const char *read_op()
     {
         compiler_error(lex_process->compiler, "The operator %s is not valid\n", ptr);
     }
-}
 
-static void lex_finish_expression()
-{
-    lex_process->current_expression_count--;
-    if (lex_process->current_expression_count < 0)
-    {
-        compiler_error(lex_process->compiler, "You closed an expression that you never opened\n");
-    }
+    return ptr;
 }
 
 static void lex_new_expression()
@@ -260,6 +265,15 @@ static void lex_new_expression()
     if (lex_process->current_expression_count == 1)
     {
         lex_process->parentheses_buffer = buffer_create();
+    }
+}
+
+static void lex_finish_expression()
+{
+    lex_process->current_expression_count--;
+    if (lex_process->current_expression_count < 0)
+    {
+        compiler_error(lex_process->compiler, "You closed an expression that you never opened\n");
     }
 }
 
@@ -452,6 +466,83 @@ char lex_get_escaped_char(char c)
     return co;
 }
 
+void lexer_pop_token() {
+    vector_pop(lex_process->token_vec);
+}
+
+bool is_hex_char(char c) {
+
+    return ('0' <= c && c <= '9') ||
+           ('A' <= c && c <= 'F') ||
+           ('a' <= c && c <= 'F');
+}
+
+const char* read_hex_number_str() {
+
+    struct buffer* buffer = buffer_create();
+
+    char c = peekc();
+    LEX_GETC_IF(buffer, c, is_hex_char(c));
+    // Write out null terminator
+    buffer_write(buffer, '\0');
+    return buffer_ptr(buffer);
+}
+
+struct token* token_make_special_number_hexadecimal() {
+    // Skip 'x' from 'xABFF..'
+    nextc();
+
+    // So we have here ABF...'
+    unsigned long number = 0;
+    const char* number_str = read_hex_number_str();
+    number = strtol(number_str, 0, 16);
+    return token_make_number_for_value(number);
+
+}
+
+void lexer_validate_binary_string(const char* str) {
+    size_t len = strlen(str);
+    for (int i = 0; i < len; ++i) {
+        if (str[i] != '0' && str[i] != '1') {
+            compiler_error(lex_process->compiler, "This is not a valid binary number");
+        }
+    }
+}
+
+struct token* token_make_special_number_binary() {
+    // Skip 'b' in e.g. 0b110101
+    nextc();
+
+    unsigned long number = 0;
+    const char* number_str = read_number_str();
+    lexer_validate_binary_string(number_str);
+    number = strtol(number_str, 0, 2);
+    return token_make_number_for_value(number);
+}
+
+struct token* token_make_special_number() {
+    struct token* token = NULL;
+    struct token* last_token = lexer_last_token();
+
+    if (!last_token || !(last_token->type == TOKEN_TYPE_NUMBER && last_token->llnum == 0)) {
+        return token_make_identifier_or_keyword();
+    }
+
+    // pop off '0' in '0x...'
+    lexer_pop_token();
+
+    char c = peekc();
+
+    if (c == 'x') {
+        token = token_make_special_number_hexadecimal();
+    }
+    else if (c == 'b') {
+        token = token_make_special_number_binary();
+    }
+
+    return token;
+}
+
 struct token *token_make_quote()
 {
     assert_next_char('\'');
@@ -495,6 +586,10 @@ struct token *read_next_token()
 
     SYMBOL_CASE:
         token = token_make_symbol();
+
+    case 'b':
+    case 'x':
+        token = token_make_special_number();
         break;
 
     case '"':
