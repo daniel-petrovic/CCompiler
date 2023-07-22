@@ -15,7 +15,7 @@ int parse(struct compile_process* process) {
 
     while (parse_next() == 0) {
         //node = node_peek(); 
-        vector_push(process->node_tree_vec, node);
+        vector_push(process->node_tree_vec, &node);
     }
     return PARSE_ALL_OK;
 }
