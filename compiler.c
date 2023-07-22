@@ -44,6 +44,8 @@ int compile_file(const char* filename, const char *out_filename, int flags)
     if (lex(lex_process) != LEXICAL_ANALYSIS_ALL_OK) {
         return COMPILER_FAILED_WITH_ERRORS;
     }
+
+    compile_process->token_vec = lex_process->token_vec;
     
     // Perform parsing
     //
