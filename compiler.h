@@ -257,5 +257,16 @@ int parse(struct compile_process* process);
 struct lex_process* tokens_build_for_string(struct compile_process* compiler, const char* str);
 
 bool token_is_keyword(struct token *token, const char *value);
+bool token_is_symbol(struct token* token, char c);
+bool token_is_nl_or_comment_or_newline_separator(struct token* token);
+
+// Node API
+void node_set_vector(struct vector* vec, struct vector* root_vec);
+void node_push(struct node* node);
+struct node* node_peek_or_null();
+struct node* node_peek_or_null();
+struct node* node_peek();
+struct node* node_pop();
+struct node* node_create(struct node* node_);
 
 #endif

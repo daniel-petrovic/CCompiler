@@ -41,3 +41,10 @@ struct node* node_pop()
 }
 
 
+struct node* node_create(struct node* node_) {
+    struct node* node = malloc(sizeof(struct node));
+    memcpy(node, node_, sizeof(struct node)); 
+#warning "We should set the binded owner and binded function here"
+    node_push(node);
+    return node;
+}
