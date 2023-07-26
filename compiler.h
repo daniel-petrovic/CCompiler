@@ -210,6 +210,10 @@ enum {
     NODE_TYPE_BLANK
 };
 
+enum {
+    NODE_FLAG_INSIDE_EXPRESSION = 0b00000001
+};
+
 struct node {
     int type;
     int flags;
@@ -223,6 +227,16 @@ struct node {
         // Pointer to the function node this node is in
         struct node* function;
     } binded;
+
+    union
+    {
+        struct exp
+        {
+            struct node* left;
+            struct node* right;
+            const char* op;
+        } exp;
+    };
 
     union {
         char cval;
@@ -264,9 +278,11 @@ bool token_is_nl_or_comment_or_newline_separator(struct token* token);
 void node_set_vector(struct vector* vec, struct vector* root_vec);
 void node_push(struct node* node);
 struct node* node_peek_or_null();
-struct node* node_peek_or_null();
 struct node* node_peek();
 struct node* node_pop();
+struct node* make_exp_node(struct node* left, struct node* right, const char* op);
 struct node* node_create(struct node* node_);
+bool node_is_expressionable(struct node* node);
+struct node* node_peek_expressionable_or_null();
 
 #endif
