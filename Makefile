@@ -1,4 +1,4 @@
-OBJECTS= ./build/compiler.o ./build/lex_process.o ./build/lexer.o ./build/parser.o ./build/node.o ./build/token.o ./build/cprocess.o ./build/helpers/buffer.o ./build/helpers/vector.o
+OBJECTS= ./build/compiler.o ./build/lex_process.o ./build/lexer.o ./build/parser.o ./build/node.o ./build/expressionable.o ./build/token.o ./build/cprocess.o ./build/helpers/buffer.o ./build/helpers/vector.o
 INCLUDES= -I./
 
 all: make_dirs ${OBJECTS}
@@ -31,6 +31,9 @@ make_dirs:
 
 ./build/node.o: node.c
 	gcc -g ${INCLUDES} node.c -o ./build/node.o -c
+
+./build/expressionable.o: expressionable.c
+	gcc -g ${INCLUDES} expressionable.c -o ./build/expressionable.o -c
 
 ./build/token.o: token.c
 	gcc -g ${INCLUDES} token.c -o ./build/token.o -c
